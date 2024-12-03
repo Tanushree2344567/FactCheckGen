@@ -3,7 +3,7 @@ This project uses a combination of APIs and tools to create a system that genera
 
 This project is a Flask-based application that integrates the NewsData.io API and the Gemini API to streamline news retrieval and article generation. It allows users to search for real-time news articles based on keywords and generate detailed, AI-powered articles from structured key points. By combining these functionalities, the application serves as a powerful tool for content creation, news aggregation, and information retrieval, making it ideal for journalists, content creators, and researchers.
 
- Features  :
+ # Features  :
 
  1. News Retrieval:
 - Fetches up-to-date news articles based on user-provided keywords.  
@@ -34,7 +34,7 @@ Before running the application, ensure you have the following:
 
 ---
 
-> Installation  
+ ## Installation  
 
 1. Clone the repository:  
    bash
@@ -64,7 +64,6 @@ Before running the application, ensure you have the following:
 # Folder Structure  
 
 
-content-generation-news-retrieval/
 │
 ├── templates/
 │   └── index.html          # Frontend HTML template
@@ -74,7 +73,9 @@ content-generation-news-retrieval/
 └── README.md               # Project documentation
   
 
+## Contribution
 
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change
 
 
 
