@@ -38,9 +38,8 @@ Before running the application, ensure you have the following:
 
 1. Clone the repository:  
    bash
-   git clone https://github.com/your-username/content-generation-news-retrieval.git
-   cd content-generation-news-retrieval
-     
+   git clone <repository-url>
+   cd <repository-name>
 
 2. Replace the placeholder API keys in the app.py file:  
    - NEWSDATA_API_KEY  
@@ -49,13 +48,8 @@ Before running the application, ensure you have the following:
 3. Run the application:  
    bash
    python app.py
-     
-
-4. Access the application in your browser at:  
-   
-   http://127.0.0.1:5000/
-
-   
+ 
+  
 ### Usage  
 
 1. News Retrieval
