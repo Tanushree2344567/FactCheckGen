@@ -34,7 +34,7 @@ Before running the application, ensure you have the following:
 
 ---
 
-Installation  
+> Installation  
 
 1. Clone the repository:  
    bash
@@ -56,7 +56,7 @@ Installation
    http://127.0.0.1:5000/
 
    
- Usage  
+### Usage  
 
 1. News Retrieval
    - Enter a keyword to search for related news articles.  
@@ -66,9 +66,8 @@ Installation
    - Provide key points or a summary.  
    - The application will generate a detailed article using AI.  
 
----
 
-Folder Structure  
+# Folder Structure  
 
 
 content-generation-news-retrieval/
