@@ -20,7 +20,7 @@ This project is a Flask-based application that integrates the NewsData.io API an
 
 ---
 
-Prerequisites  
+# Prerequisites  
 
 Before running the application, ensure you have the following:  
 1. Python 3.x installed.  
