@@ -61,17 +61,6 @@ Before running the application, ensure you have the following:
    - The application will generate a detailed article using AI.  
 
 
-# Folder Structure  
-
-
-│
-├── templates/
-│   └── index.html          # Frontend HTML template
-│
-├── app.py                  # Main Flask application
-├── requirements.txt        # Python dependencies
-└── README.md               # Project documentation
-  
 
 ## Contribution
 
