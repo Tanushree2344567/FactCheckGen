@@ -1,114 +1,197 @@
+from flask import Flask, request, jsonify, render_template
 import requests
-from flask import Flask, render_template, request, jsonify
+import json
+from typing import Dict, Optional
+from flask_cors import CORS  # Make sure to install flask-cors: pip install flask-cors
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
-# NewsData.io API Configuration
-NEWSDATA_API_KEY = "pub_611749570cd796321c0b0de8c8c0f4c762b92"  # Replace with your actual NewsData.io API key
-NEWSDATA_BASE_URL = "https://newsdata.io/api/1/news"
+# API keys and URLs
+MEDIASTACK_API_KEY = "pub_61237c06f64f177491db90d43ed8a31a07ba9"
+GEMINI_API_KEY = "AIzaSyCcl8cEP604d8pvpDwH4a9MF5NX7Lkc6e0"
+NEWSDATA_API_KEY = "pub_61237c06f64f177491db90d43ed8a31a07ba9"
 
-def fetch_current_news(keywords=None, country=None, category=None, language='en', page=None):
-    """
-    Fetch current news articles using NewsData.io API with advanced filtering
-    
-    Parameters:
-    - keywords: Optional search keywords
-    - country: Optional country code (e.g., 'us', 'in')
-    - category: Optional news category 
-    - language: Language of news (default: English)
-    - page: Pagination token for fetching next set of results
-    """
-    params = {
-        "apikey": NEWSDATA_API_KEY,
-        "language": language
-    }
-    
-    # Add optional parameters if provided
-    if keywords:
-        params["qInTitle"] = keywords
-    if country:
-        params["country"] = country
-    if category:
-        params["category"] = category
-    if page:
-        params["page"] = page
-    
-    try:
-        response = requests.get(NEWSDATA_BASE_URL, params=params)
-        response.raise_for_status()  # Raise an exception for bad responses
+MEDIASTACK_BASE_URL = "https://newsdata.io/api/1/news"
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+
+# Trusted news sources for credibility check
+TRUSTED_SOURCES = [
+    "bbc.com",
+    "cnn.com",
+    "reuters.com",
+    "nytimes.com",
+    "theguardian.com",
+    "deadline.com",
+]
+
+class NewsFakeDetector:
+    def __init__(self):
+        self.api_key = NEWSDATA_API_KEY
+
+    def fetch_news_articles(self, query: str, language: str = "en") -> Optional[Dict]:
+        params = {
+            "apikey": self.api_key,
+            "q": query,
+            "language": language,
+        }
+        try:
+            response = requests.get(MEDIASTACK_BASE_URL, params=params)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching news: {e}")
+            return None
+
+    def is_trusted_source(self, source_url: str) -> bool:
+        return any(trusted_source in source_url for trusted_source in TRUSTED_SOURCES)
+
+    def detect_fake_news(self, query: str):
+        articles = self.fetch_news_articles(query)
+        if not articles or "results" not in articles:
+            return []
         
-        data = response.json()
-        
-        if data.get('results'):
-            # Process and return news articles
-            news_articles = []
-            for article in data['results']:
-                news_articles.append({
-                    "title": article.get('title', 'No Title'),
-                    "description": article.get('description', 'No Description'),
-                    "link": article.get('link', ''),
-                    "published_at": article.get('pubDate', 'Unknown Date'),
-                    "source": article.get('source_id', 'Unknown Source'),
-                    "country": article.get('country', ['Unknown'])[0]
-                })
+        detailed_results = []
+        formatted_results = []
+        for article in articles["results"]:
+            title = article.get("title", "No Title")
+            source_url = article.get("source_url", "")
+            source = article.get("source", "Unknown Source")
+            description = article.get("description", "No Description")
+            is_trusted = self.is_trusted_source(source_url)
             
-            return {
-                "articles": news_articles,
-                "next_page": data.get('nextPage')
+            # Detailed result for frontend
+            detailed_result = {
+                "title": title,
+                "source": source,
+                "source_url": source_url,
+                "description": description,
+                "is_trusted": is_trusted
             }
-        else:
-            return {"articles": [], "next_page": None}
-    
-    except requests.exceptions.RequestException as e:
-        print(f"API Request Error: {e}")
-        return {"articles": [], "next_page": None}
+            detailed_results.append(detailed_result)
+            
+            # Formatted string result
+            formatted_result = f"Title: '{title}'\n"
+            formatted_result += f"Source: {source} ({source_url})\n"
+            
+            if is_trusted:
+                formatted_result += "-> Trusted Source ✅"
+            else:
+                formatted_result += "-> Untrusted Source ⚠\n"
+                formatted_result += "-> No matching trusted content. 🚩 Potential Fake News"
+            
+            formatted_results.append(formatted_result)
+        
+        return detailed_results, formatted_results
+
+# Initialize the news detector
+detector = NewsFakeDetector()
 
 @app.route("/")
-def index():
+def home():
+    """Render the homepage."""
     return render_template("index.html")
 
 @app.route("/handle_request", methods=["POST"])
 def handle_request():
+    """Handle news and article generation requests."""
+    data = request.json
+    if not data or "type" not in data or "input" not in data:
+        return jsonify({"success": False, "error": "Invalid request parameters."}), 400
+
+    if data["type"] == "news":
+        return fetch_news(
+            data["input"], 
+            data.get("country"), 
+            data.get("category")
+        )
+    elif data["type"] == "article":
+        return generate_article(data["input"])
+    elif data["type"] == "fake_news":
+        detailed_results, formatted_results = detector.detect_fake_news(data["input"])
+        return jsonify({
+            "success": True, 
+            "results": detailed_results,
+            "formatted_results": "\n\n".join(formatted_results)
+        })
+    else:
+        return jsonify({"success": False, "error": "Invalid request type."}), 400
+
+def fetch_news(keywords, country=None, category=None):
+    """Fetch news articles using the Newsdata.io API with advanced filtering."""
+    params = {
+        "apikey": NEWSDATA_API_KEY,
+        "q": keywords,
+        "language": "en",
+    }
+    
+    if country:
+        params["country"] = country
+    
+    if category:
+        params["category"] = category
+    
+    response = requests.get(MEDIASTACK_BASE_URL, params=params)
+    
+    if response.status_code == 200:
+        data = response.json()
+        articles = [
+            {
+                "title": article.get("title", "No Title"),
+                "description": article.get("description", "No Description"),
+                "link": article.get("link", "#"),
+            }
+            for article in data.get("results", [])
+        ]
+        return jsonify({"success": True, "articles": articles})
+    
+    return jsonify({"success": False, "error": "Failed to fetch news."})
+
+def generate_article(prompt):
+    """Generate an article using the Gemini API."""
+    url = f"{GEMINI_BASE_URL}?key={GEMINI_API_KEY}"
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": f"Write a detailed article on the following topic: {prompt}. The article should be around 300-400 words long and cover key aspects of the subject."
+            }]
+        }],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 1000,
+            "topP": 0.8,
+            "topK": 10
+        }
+    }
+    
     try:
-        # Get user input and type
-        data = request.json
-        user_input = data.get('input')
-        request_type = data.get('type')  # "news" or "article"
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
         
-        # Additional news filtering parameters
-        country = data.get('country', '')
-        category = data.get('category', '')
-        language = data.get('language', 'en')
-        page = data.get('page')
-
-        if request_type == "news":
-            # Fetch current news with advanced filtering
-            news_result = fetch_current_news(
-                keywords=user_input,
-                country=country,
-                category=category,
-                language=language,
-                page=page
-            )
+        if response.status_code == 200:
+            result = response.json()
             
-            if news_result['articles']:
-                return jsonify({
-                    "type": "news", 
-                    "response": news_result['articles'],
-                    "next_page": news_result['next_page']
-                })
+            if 'candidates' in result and result['candidates']:
+                content = result['candidates'][0]['content']['parts'][0]['text']
+                return jsonify({"success": True, "response": content})
             else:
-                return jsonify({
-                    "type": "news",
-                    "error": "No news articles found",
-                    "response": []
-                }), 404
-
+                return jsonify({"success": False, "error": "No content generated."})
         else:
-            return jsonify({"error": "Invalid request type"}), 400
-
+            return jsonify({
+                "success": False, 
+                "error": f"API request failed with status {response.status_code}",
+                "details": response.text
+            })
+    
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "success": False, 
+            "error": f"An error occurred: {str(e)}"
+        })
 
 if __name__ == "__main__":
     app.run(debug=True)
